@@ -6,7 +6,8 @@ Custom Mission Planning Interface.
 - Make a branch with title your name and the part of the project you are working on.
 - work only on your branch main will be protected.
 
-## Setting up MAVProxy
+## Starting MAVProxy
+To start MAVProxy, it needs to be installed first. You can find the instructions [here](https://ardupilot.org/mavproxy/docs/getting_started/download_and_installation.html).  
 Currently, only a Bash script is available for simplifying MAVProxy setup.
 
 ### Using the Bash Script
