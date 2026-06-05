@@ -1,6 +1,6 @@
 
 uav=/dev/serial/by-id/* # Location to get to the UAV
-uav_name=Phoenix    # Name of the UAV
+uav_name=Phoenix        # Name of the UAV
 
 host=127.0.0.1          # Whatever the stream is going to be on
 mp_tcp=14550            # MissionPlanner TCP output port

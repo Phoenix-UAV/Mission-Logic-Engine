@@ -1,0 +1,31 @@
+# Startup scipt for MAVProxy.
+
+# Aliases
+
+
+# Commands
+## General
+set dist_unit m
+set height_unit m
+set inhibit_screensaver_when_armed true
+set requireexit true
+set speed_unit m/s
+set vehicle_name Phoenix
+
+## Debug
+set script_fatal true
+set shownoise false
+
+## Permissions and Forwarding
+set fwdpos false    # Determines whether the global position is transmitted
+set mavfwd false
+set param_ftp true
+
+## Waypoints and Altitudes
+set wpupdates true
+set terrainalt auto
+
+set wpalt 900
+set basealt 900
+set rallyalt 900
+set guidedalt 900

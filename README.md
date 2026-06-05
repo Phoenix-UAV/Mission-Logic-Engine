@@ -11,6 +11,8 @@ Currently, only a Bash script is available for simplifying MAVProxy setup.
 
 ### Using the Bash Script
 To use the script:
-1. Change the variable `uav` to the directory connected to the UAV telemetry.
-2. Go into the directory `MAVProxy`.
-3. Run `./mavinit.sh`.
+1. In `MAVProxy/mavinit.sh`, Change the variable `uav` to the directory connected to the UAV telemetry.
+2. From the base directory, run `./MAVProxy/mavinit.sh`.
+
+## Configuring MAVProxy
+To configure MAVProxy, use the files `Phoenix/mavinit.scr` and `MAVProxy/mavinit.sh`.

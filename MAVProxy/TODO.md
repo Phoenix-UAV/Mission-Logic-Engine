@@ -1,5 +1,8 @@
 # TODO
-This is the todo file for the MAVProxy section.
+This is the todo file for the MAVProxy task.
+
+## General
+-[ ] Write a mavinit.scr script that runs on startup
 
 ## Linux Script
 -[X] Write a working Bash script
