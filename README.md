@@ -55,7 +55,7 @@ This repository contains a complete architecture for controlling autonomous fixe
 3. **They follow OS-specific setup**:
    - Windows: `SETUP_WINDOWS.md`
    - Linux: `SETUP_LINUX.md`
-   - macOS: `SETUP_MACOS.md`
+   - ~~macOS: `SETUP_MACOS.md`~~
 
 4. **They add upstream remote**:
    ```bash
