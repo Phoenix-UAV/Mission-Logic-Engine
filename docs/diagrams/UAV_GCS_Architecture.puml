@@ -1,0 +1,266 @@
+@startuml UAV_GCS_Complete_Architecture
+!theme plain
+title Autonomous Fixed-Wing UAV GCS Architecture\nPixhawk 6C + LoRa + Siyi Video + ROS2 + Mission Planner
+
+' ============================================================================
+' STYLE DEFINITIONS
+' ============================================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontSize 10
+skinparam classFontSize 10
+skinparam arrowFontSize 9
+
+skinparam rectangle {
+    BackgroundColor #E1F5FF
+    BorderColor #01579B
+    FontColor #000000
+}
+
+skinparam component {
+    BackgroundColor #E3F2FD
+    BorderColor #1565C0
+    FontColor #000000
+}
+
+skinparam database {
+    BackgroundColor #F3E5F5
+    BorderColor #512DA8
+    FontColor #000000
+}
+
+skinparam actor {
+    BackgroundColor #E8F5E9
+    BorderColor #2E7D32
+    FontColor #000000
+}
+
+skinparam interface {
+    BackgroundColor #FFF3E0
+    BorderColor #E65100
+    FontColor #000000
+}
+
+' ============================================================================
+' UAV / AIRCRAFT SECTION
+' ============================================================================
+
+package "🛩 UNMANNED AERIAL VEHICLE (Fixed-Wing Aircraft)" #BBDEFB {
+
+    component "Pixhawk 6C\nFlight Controller" as Pixhawk {
+        interface "TELEM1 (UART)" as PIXHAWK_UART
+        interface "USB" as PIXHAWK_USB
+    }
+
+    component "Siyi A8 Mini Camera" as SiyiA8 {
+        interface "GigE Ethernet" as SIYI_A8_GIGE
+    }
+
+    component "Air Unit: Siyi HM30\n(Video Encoder & TX)" as SiyiAirHM30 {
+        interface "GigE Input" as HM30_AIR_INPUT
+        interface "Wireless TX (2.4GHz)" as HM30_AIR_TX
+    }
+
+    component "LoRa Module LR900-F\n(UAV Unit)" as LoRaUAV {
+        interface "UART TX/RX" as LORA_UAV_UART
+        interface "Antenna" as LORA_UAV_ANT
+    }
+
+    ' UAV Internal Connections
+    Pixhawk --> PIXHAWK_UART
+    PIXHAWK_UART -- LORA_UAV_UART : "MAVLink Telemetry\n(57600 baud)"
+    
+    SiyiA8 --> SIYI_A8_GIGE
+    SIYI_A8_GIGE -- HM30_AIR_INPUT : "Video Stream\n(GigE 1Gbps)"
+    
+    HM30_AIR_INPUT --> SiyiAirHM30
+    SiyiAirHM30 --> HM30_AIR_TX
+}
+
+' ============================================================================
+' GROUND STATION SECTION
+' ============================================================================
+
+package "🖥 GROUND CONTROL STATION" as GCS_MAIN #F1F8E9 {
+
+    ' Hardware Layer
+    package "Hardware Interface Layer" as HW_LAYER #FFFDE7 {
+        component "LoRa Module LR900-F\n(GCS Unit)" as LoRaGCS {
+            interface "USB Serial" as LORA_GCS_USB
+            interface "Antenna" as LORA_GCS_ANT
+        }
+
+        component "Ground Unit: Siyi HM30\n(Video Receiver)" as SiyiGroundHM30 {
+            interface "Wireless RX (2.4GHz)" as HM30_GND_RX
+            interface "Ethernet Output" as HM30_GND_ETH
+        }
+
+        HM30_GND_RX -- SiyiGroundHM30
+        SiyiGroundHM30 --> HM30_GND_ETH
+    }
+
+    ' MAVProxy Central Hub
+    component "MAVProxy\n(Central Telemetry Hub)" as MAVProxy {
+        interface "COM Port Input" as MAVPROXY_SERIAL_IN
+        interface "TCP 14550" as MAVPROXY_14550
+        interface "TCP 14551" as MAVPROXY_14551
+        interface "TCP 14552" as MAVPROXY_14552
+        interface "UDP Logging" as MAVPROXY_LOG
+        interface "COM Port Output" as MAVPROXY_SERIAL_OUT
+    }
+
+    ' Mission Planner
+    component "Mission Planner\n(Flight Analysis & Tuning)" as MissionPlanner {
+        interface "TCP Connect" as MP_TCP
+    }
+
+    ' Docker Container with ROS2
+    package "Docker Container (ROS2 Humble)" as DOCKER_ROS2 #E1F5FE {
+
+        ' ROS2 Publishers
+        component "ROS2: MAVLink Telemetry\nPublisher" as ROSTelemetryPub {
+            interface "Subscribe TCP 14551" as ROSTELEM_IN
+            interface "Pub: /vehicle/telemetry" as ROSTELEM_OUT
+        }
+
+        component "ROS2: Video Stream\nPublisher" as ROSVideoPub {
+            interface "Subscribe Ethernet" as ROSVIDEO_IN
+            interface "Pub: /camera/frames" as ROSVIDEO_OUT
+        }
+
+        ' Custom GCS Software
+        component "Custom GCS Software\n(Mission Logic & CV)" as CustomGCS {
+            interface "Sub: /vehicle/telemetry" as CGS_TELEM_SUB
+            interface "Sub: /camera/frames" as CGS_VIDEO_SUB
+            interface "Sub: Other ROS Topics" as CGS_OTHER_SUB
+            interface "Pub: /mission/commands" as CGS_CMD_PUB
+            interface "Internal: OpenCV\nInternal: YOLOv8 Inference" as CGS_INTERNAL
+        }
+
+        ' DroneKit Interface
+        component "DroneKit-Python\n(MAVLink Command Interface)" as DroneKit {
+            interface "Subscribe: /mission/commands" as DK_CMD_SUB
+            interface "Send TCP 14552" as DK_SEND
+        }
+
+        ' ROS2 Subscriptions
+        ROSTELEM_IN -- ROSTelemetryPub
+        ROSVIDEO_IN -- ROSVideoPub
+        
+        ROSTELEM_OUT -- CGS_TELEM_SUB
+        ROSVIDEO_OUT -- CGS_VIDEO_SUB
+        
+        CGS_TELEM_SUB -- CustomGCS
+        CGS_VIDEO_SUB -- CustomGCS
+        CGS_OTHER_SUB -- CustomGCS
+        
+        CustomGCS --> CGS_INTERNAL
+        CustomGCS --> CGS_CMD_PUB
+        CGS_CMD_PUB -- DK_CMD_SUB
+        DK_CMD_SUB -- DroneKit
+        DroneKit --> DK_SEND
+    }
+
+    ' Hardware connections to MAVProxy
+    LORA_GCS_USB -- MAVPROXY_SERIAL_IN : "Incoming Telemetry\n(LoRa Data)\n2.1 KB/s"
+    MAVPROXY_SERIAL_OUT -- LORA_GCS_USB : "Outgoing Commands\n(LoRa Data)\n2.1 KB/s"
+
+    ' GCS Software connections
+    MAVPROXY_14550 -- MP_TCP : "TCP Stream\n(telemetry monitoring)"
+    MAVPROXY_14551 -- ROSTELEM_IN : "TCP Stream\n(ROS telemetry input)"
+    MAVPROXY_14552 -- DK_SEND : "TCP Stream\n(DroneKit commands)"
+    MAVPROXY_LOG : "Binary MAVLink Logs"
+
+    ' Siyi Video to ROS
+    HM30_GND_ETH -- ROSVIDEO_IN : "Ethernet Video Stream\n(GigE 1Gbps)"
+}
+
+' ============================================================================
+' WIRELESS LINKS (AIR MEDIUM)
+' ============================================================================
+
+cloud "📡 WIRELESS LINKS" #FFF9C4 {
+    interface "LoRa 915 MHz\n(100-400ms latency\n2.1 KB/s)" as LORA_LINK
+    interface "Siyi 2.4GHz\n(proprietary)\n(20-100ms latency\n*Mbps video)" as SIYI_LINK
+}
+
+LORA_UAV_ANT -- LORA_LINK : "TX/RX"
+LORA_LINK -- LORA_GCS_ANT : "TX/RX"
+
+HM30_AIR_TX -- SIYI_LINK : "TX"
+SIYI_LINK -- HM30_GND_RX : "RX"
+
+' ============================================================================
+' LEGEND AND DATA FLOW NOTES
+' ============================================================================
+
+note right of Pixhawk
+  **State:**
+  • Roll, Pitch, Yaw
+  • GPS Lat, Lon, Alt
+  • Airspeed, Groundspeed
+  • Battery voltage/current
+  • Flight mode
+  • Arm state
+end note
+
+note right of CustomGCS
+  **Inputs:**
+  • Pixhawk telemetry
+  • Video frames (GigE)
+  • Internal state
+  
+  **Processing:**
+  • OpenCV frame processing
+  • YOLOv8 inference
+  • Decision logic
+  
+  **Outputs:**
+  • Arm/Disarm
+  • Set flight mode
+  • Send waypoints
+  • Payload commands
+end note
+
+note bottom of MAVProxy
+  **Critical Node:** Multiplexes telemetry from LoRa
+  to multiple clients (Mission Planner, ROS2, DroneKit)
+  without serial port conflicts
+end note
+
+note bottom of CustomGCS
+  **Autonomous Mission Brain**
+  Subscribes to telemetry + video
+  Runs CV inference pipeline
+  Publishes control commands via DroneKit
+end note
+
+' ============================================================================
+' SEQUENCE LEGEND (EXAMPLES)
+' ============================================================================
+
+note top of GCS_MAIN
+  **Telemetry Path (DOWN - UAV → GCS):**
+  Pixhawk 6C → UART → LoRa TX → (915MHz) →
+  LoRa RX → COM3/USB → MAVProxy →
+  TCP:14550 (Mission Planner)
+  TCP:14551 (ROS2)
+  
+  **Command Path (UP - GCS → UAV):**
+  Custom GCS → DroneKit → TCP:14552 →
+  MAVProxy → COM3/USB → LoRa TX → (915MHz) →
+  LoRa RX → UART → Pixhawk 6C
+  
+  **Video Path (DOWN - UAV → GCS):**
+  Siyi A8 mini → GigE → Siyi Air HM30 →
+  (2.4GHz proprietary) → Siyi Ground HM30 →
+  Ethernet → ROS2 Video Publisher
+  
+  **Latency Budget:**
+  • LoRa telemetry: 100-400ms round-trip
+  • Video: 20-100ms (Siyi proprietary)
+  • ROS2 processing: 50-200ms
+  • Total mission loop: 200-700ms
+end note
+
+@enduml

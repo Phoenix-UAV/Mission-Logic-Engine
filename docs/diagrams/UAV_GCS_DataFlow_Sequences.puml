@@ -1,0 +1,209 @@
+@startuml UAV_GCS_DataFlow_Sequences
+!theme plain
+title Data Flow & Communication Sequences\nAutonomous UAV GCS System
+
+' ============================================================================
+' STYLE DEFINITIONS
+' ============================================================================
+
+skinparam BackgroundColor #FFFFFF
+skinparam DefaultFontSize 9
+skinparam SequenceLifeLineBorderColor #000000
+skinparam SequenceGroupBorderColor #01579B
+skinparam SequenceGroupHeaderBackgroundColor #81D4FA
+
+' ============================================================================
+' MAIN SEQUENCE DIAGRAM: TELEMETRY DOWN + MISSION COMMAND UP
+' ============================================================================
+
+participant "Pixhawk 6C\nFlight Controller" as Pixhawk
+participant "LoRa Module\n(UAV)" as LoRaAir
+participant "LoRa Module\n(GCS)" as LoRaGnd
+participant "MAVProxy\nHub" as MAVProxy
+participant "Mission\nPlanner" as MP
+participant "ROS2\nTelemetry Pub" as ROS_Telem
+participant "Custom GCS\nSoftware" as CustomGCS
+participant "DroneKit" as DroneKit
+
+== SCENARIO 1: TELEMETRY DOWNLOAD (UAV → GCS) ==
+
+autonumber
+
+Pixhawk ->> Pixhawk: Generate telemetry\n(GPS, attitude, battery)\nevery 10-20ms
+Pixhawk ->> LoRaAir: UART TX\nMAVLink packet\n(57600 baud)
+note right of LoRaAir: Buffer telemetry\nfor RF modulation
+
+LoRaAir ->> LoRaAir: LoRa modulation\n(SF7, 2.1KB/s)
+note over LoRaAir, LoRaGnd: AIR TIME: 50-200ms\n915 MHz link\nLine-of-sight up to 30km
+
+LoRaAir -->> LoRaGnd: LoRa RF signal\n(915 MHz)
+note right of LoRaGnd: Demodulate RF\nto serial data
+
+LoRaGnd ->> LoRaGnd: UART RX\nMAVLink packet received
+LoRaGnd ->> MAVProxy: USB/COM3 Serial\ntelemetry stream
+note right of MAVProxy: Parse MAVLink\nBroadcast to clients
+
+par Parallel Distribution
+    MAVProxy ->> MP: TCP:14550\ntelemetry stream
+    note left of MP: Real-time monitoring\nParameter display
+    
+    MAVProxy ->> ROS_Telem: TCP:14551\ntelemetry stream
+    note left of ROS_Telem: Deserialize MAVLink\nConvert to ROS message
+    
+    MAVProxy ->> MAVProxy: Log to file\n(.tlog, .bin)
+end
+
+ROS_Telem ->> ROS_Telem: Parse packet\nPublish to ROS topic
+ROS_Telem ->> CustomGCS: ROS Topic Subscription\n/vehicle/telemetry\n(1-10 Hz effective rate)
+
+CustomGCS ->> CustomGCS: Update state estimate\nTelemetry processing\nFeed to decision logic
+
+note over Pixhawk, CustomGCS: TOTAL LATENCY: 150-420ms\n(LoRa air: 50-200ms + processing: ~100-220ms)
+
+== SCENARIO 2: MISSION COMMAND UPLOAD (GCS → UAV) ==
+
+autonumber
+
+CustomGCS ->> CustomGCS: Decision logic\ncomputes next action\n(every 100-500ms)
+note right of CustomGCS: Based on:\n• Telemetry state\n• Vision inference\n• Mission plan
+
+CustomGCS ->> CustomGCS: Generate MAVLink\ncommand packet\n(SET_POSITION_TARGET,\nSET_ATTITUDE_TARGET, etc)
+
+CustomGCS ->> DroneKit: ROS Topic Publish\n/mission/commands
+
+DroneKit ->> DroneKit: DroneKit library\nConverts to MAVLink\ncommand packet
+
+DroneKit ->> MAVProxy: TCP:14552\nMAVLink command\n(command upload)
+note right of MAVProxy: Queue command\nfor transmission
+
+MAVProxy ->> LoRaGnd: USB/COM3 Serial\ncommand packet\n(57600 baud)
+
+LoRaGnd ->> LoRaGnd: UART TX\nMAVLink command
+
+LoRaGnd ->> LoRaGnd: LoRa modulation\n(SF7, 2.1KB/s)
+
+LoRaGnd -->> LoRaAir: LoRa RF signal\n(915 MHz)
+note over LoRaGnd, LoRaAir: AIR TIME: 50-200ms
+
+LoRaAir ->> LoRaAir: Demodulate\nUART RX\ncommand packet
+
+LoRaAir ->> Pixhawk: UART RX\nMAVLink command\n(57600 baud)
+
+Pixhawk ->> Pixhawk: Parse command\nUpdate flight controller state\n(servo output, mode change, etc)
+
+note over CustomGCS, Pixhawk: TOTAL LATENCY: 150-420ms\n(LoRa air: 50-200ms + processing: ~100-220ms)
+
+== SCENARIO 3: VIDEO STREAM (UAV → GCS) ==
+
+autonumber
+
+participant "Siyi A8 Mini\nCamera" as SiyiCamera
+participant "Siyi HM30 Air\nEncoder" as SiyiAir
+participant "Siyi HM30 Ground\nReceiver" as SiyiGnd
+participant "ROS2\nVideo Pub" as ROS_Video
+
+SiyiCamera ->> SiyiCamera: Capture frame\n30 FPS (33ms per frame)
+
+SiyiCamera ->> SiyiAir: GigE Ethernet\nVideo data\n(1 Gbps link)
+
+SiyiAir ->> SiyiAir: H.264/H.265 encoding\nVideo compression
+
+SiyiAir ->> SiyiAir: Wireless encoding\n(Siyi proprietary 2.4GHz)
+
+SiyiAir -->> SiyiGnd: 2.4GHz RF link\n(proprietary protocol)
+note over SiyiAir, SiyiGnd: TYPICAL LATENCY: 20-100ms\nDepends on resolution & bitrate
+
+SiyiGnd ->> SiyiGnd: Demodulate\nDecode video stream
+
+SiyiGnd ->> ROS_Video: Ethernet output\ncompressed video data
+
+ROS_Video ->> ROS_Video: Decode/decompress\nExtract frames\nPublish to ROS
+
+ROS_Video ->> CustomGCS: ROS Topic Subscription\n/camera/frames\n(20-30 FPS)
+
+CustomGCS ->> CustomGCS: OpenCV preprocessing\n(resize, normalize)
+
+CustomGCS ->> CustomGCS: YOLOv8 inference\n(30-50ms per frame on CPU)
+
+CustomGCS ->> CustomGCS: Decision based on detections\nUpdate mission state
+
+note over SiyiCamera, CustomGCS: TOTAL VIDEO LATENCY: 80-200ms\n(Siyi: 20-100ms + encoding/decoding + inference: 30-100ms)
+
+== SCENARIO 4: MISSION PLANNER PARAMETER TUNING ==
+
+autonumber
+
+MP ->> MAVProxy: TCP:14550\nParameter read request\n(PARAM_REQUEST_LIST)
+
+MAVProxy ->> LoRaGnd: Relay to serial\nparameter request
+
+LoRaGnd ->> LoRaAir: LoRa TX\nparameter request
+
+LoRaAir ->> Pixhawk: UART RX\nparameter request
+
+Pixhawk ->> Pixhawk: Retrieve parameter\nfrom memory
+
+Pixhawk ->> LoRaAir: UART TX\nparameter value\n(PARAM_VALUE message)
+
+LoRaAir ->> LoRaGnd: LoRa RX\nparameter value
+
+LoRaGnd ->> MAVProxy: USB/COM3\nparameter value
+
+MAVProxy ->> MP: TCP:14550\nparameter display
+
+MP ->> MP: Display in GUI\nParameter tree
+
+note right of MP: User adjusts PID gains\nor flight parameters
+
+MP ->> MAVProxy: TCP:14550\nParameter write\n(PARAM_SET message)
+
+MAVProxy ->> LoRaGnd: USB/COM3\nparameter write
+
+LoRaGnd ->> LoRaAir: LoRa TX\nparameter set
+
+LoRaAir ->> Pixhawk: UART RX\nset parameter value
+
+Pixhawk ->> Pixhawk: Update parameter\nin memory
+
+Pixhawk ->> Pixhawk: Take effect\n(new tuning applied)
+
+note over MP, Pixhawk: PARAMETER TUNING LATENCY: 300-800ms\n(2x LoRa round-trip + processing)
+
+== SCENARIO 5: CRITICAL COMMAND EXECUTION ==
+
+autonumber
+
+CustomGCS ->> CustomGCS: DECISION: ARM and TAKEOFF
+note right of CustomGCS: OpenCV detected\nsuitable conditions
+
+CustomGCS ->> DroneKit: /mission/commands\narm_drone() call
+
+DroneKit ->> DroneKit: Convert to\nCOMMAND_LONG message
+
+DroneKit ->> MAVProxy: TCP:14552\ncommand (ARM_DISARM)
+
+MAVProxy ->> LoRaGnd: USB/COM3\ncommand
+
+LoRaGnd ->> LoRaAir: LoRa TX\nARM command
+
+LoRaAir ->> Pixhawk: UART RX\nARM_DISARM command
+
+Pixhawk ->> Pixhawk: Process arm request\nverify conditions\n(pre-arm checks)
+
+Pixhawk ->> Pixhawk: Arm motors\nReady for flight
+
+Pixhawk ->> LoRaAir: UART TX\nSTATUSEXT (armed=1)
+
+LoRaAir ->> LoRaGnd: LoRa TX\nstatus message
+
+LoRaGnd ->> MAVProxy: USB/COM3\nstatus update
+
+MAVProxy ->> ROS_Telem: TCP:14551\nstatus
+
+ROS_Telem ->> CustomGCS: /vehicle/telemetry\narmed = true
+
+CustomGCS ->> CustomGCS: Confirm arm state\nproceed to takeoff
+
+note over CustomGCS, Pixhawk: COMMAND EXECUTION LATENCY: 200-500ms\n(LoRa + processing + Pixhawk response)
+
+@enduml

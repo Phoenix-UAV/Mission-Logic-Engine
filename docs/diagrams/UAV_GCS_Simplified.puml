@@ -1,0 +1,139 @@
+@startuml UAV_GCS_Simplified
+!theme plain
+title Simplified Architecture Overview\nAutonomous Fixed-Wing UAV GCS System
+
+skinparam BackgroundColor #FFFFFF
+skinparam DefaultFontSize 11
+skinparam MaxMessageSize 200
+
+' ============================================================================
+' SIMPLIFIED OVERVIEW
+' ============================================================================
+
+rectangle "🛩 UNMANNED AERIAL VEHICLE" #BBDEFB {
+    rectangle "Pixhawk 6C\nFlight Controller" as Pixhawk
+    rectangle "Sensors\n(GPS, IMU, Barometer)" as Sensors
+    rectangle "Siyi A8 Mini\n(Camera)" as Camera
+    rectangle "Siyi HM30 Air\n(Video Encoder)" as SiyiAir
+    rectangle "LoRa LR900-F\n(Telemetry TX/RX)" as LoRaAir
+    
+    Pixhawk -- Sensors
+    Camera -- SiyiAir
+    Pixhawk -- LoRaAir
+}
+
+rectangle "📡 WIRELESS LINKS" #FFF9C4 {
+    rectangle "LoRa 915MHz\n(100-400ms latency)" as LoRaLink
+    rectangle "Siyi 2.4GHz\n(20-100ms latency)" as SiyiLink
+}
+
+rectangle "🖥 GROUND CONTROL STATION (Windows PC)" #F1F8E9 {
+    
+    rectangle "Hardware Layer" {
+        rectangle "LoRa LR900-F\n(COM3/USB)" as LoRaGCS
+        rectangle "Siyi HM30 Ground\n(Ethernet)" as SiyiGCS
+    }
+    
+    rectangle "Telemetry Hub" {
+        rectangle "MAVProxy\nTCP:14550/14551/14552" as MAVProxy
+    }
+    
+    rectangle "Applications" {
+        rectangle "Mission Planner\n(Tuning & Analysis)" as MP
+        rectangle "Custom GCS\n(ROS2 Container)" as CGS
+    }
+    
+    rectangle "Custom GCS Internals" {
+        rectangle "ROS2 Publishers\n(MAVLink + Video)" as ROSPub
+        rectangle "Mission Logic\n(OpenCV + YOLO)" as Mission
+        rectangle "DroneKit\n(Command Interface)" as DK
+    }
+    
+    LoRaGCS -- MAVProxy
+    SiyiGCS -- ROSPub
+    MAVProxy -- MP
+    MAVProxy -- ROSPub
+    ROSPub -- Mission
+    Mission -- DK
+    DK -- MAVProxy
+}
+
+LoRaAir -- LoRaLink
+LoRaLink -- LoRaGCS
+
+SiyiAir -- SiyiLink
+SiyiLink -- SiyiGCS
+
+' ============================================================================
+' DATA FLOW SUMMARY
+' ============================================================================
+
+note right of LoRaAir
+    **DOWNLINK (Telemetry)**
+    Pixhawk → LoRa TX → GCS LoRa RX
+    → MAVProxy → ROS2 → Custom GCS
+    
+    Latency: 150-420ms
+    Bandwidth: 2.1 KB/s
+end note
+
+note right of SiyiAir
+    **VIDEO STREAM**
+    Camera → Siyi HM30 → GCS HM30
+    → ROS2 → Mission Logic → CV Inference
+    
+    Latency: 80-200ms
+    Bandwidth: Variable (compressed)
+end note
+
+note right of DK
+    **UPLINK (Commands)**
+    Custom GCS → DroneKit
+    → MAVProxy → LoRa TX
+    → Pixhawk
+    
+    Latency: 150-420ms
+    Bandwidth: On-demand
+end note
+
+note bottom
+    *** KEY COMPONENTS ***
+    
+    1. PIXHAWK 6C: Flight controller (ArduPlane firmware)
+    2. LORA LR900-F: Long-range telemetry (2 units)
+    3. SIYI A8 MINI: GigE camera for video
+    4. SIYI HM30: Video encoder (2 units - air + ground)
+    5. MAVPROXY: Central telemetry hub (multiplexer)
+    6. MISSION PLANNER: Pre-flight tuning, post-flight analysis
+    7. CUSTOM GCS: ROS2-based autonomous mission controller
+    
+    *** COMMUNICATION SUMMARY ***
+    
+    DOWN (UAV→GCS):
+    • Telemetry: LoRa 915MHz (100-400ms latency)
+    • Video: Siyi 2.4GHz (20-100ms latency)
+    
+    UP (GCS→UAV):
+    • Commands: LoRa 915MHz (100-400ms latency)
+    
+    INTERNAL (GCS):
+    • MAVProxy ↔ ROS2: TCP localhost (5-10ms)
+    • ROS2 Pub/Sub: IntraProcess (5-15ms)
+    
+    *** TIMING ***
+    
+    Telemetry Loop: 10-20ms (50-100 Hz Pixhawk updates)
+    ROS2 Effective Rate: 5-10 Hz (filtering)
+    Video Frame Rate: 20-30 Hz
+    Mission Decision Rate: 1-10 Hz (100-1000ms cycle)
+    
+    *** KEY SAFETY NOTES ***
+    
+    ✓ Geofencing: Hardware geofence in Pixhawk
+    ✓ RTH: Auto return-to-home on LoRa loss >5s
+    ✓ Failsafes: Battery low, GPS loss handled in firmware
+    ✓ Watchdog: Monitor MAVProxy + ROS2 heartbeat
+    ✓ Logging: All telemetry logged by MAVProxy + ROS2
+end note
+
+@enduml
