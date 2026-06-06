@@ -40,29 +40,29 @@ This repository contains a complete architecture for controlling autonomous fixe
 
 ### For Each Team Member
 
-1. **They fork the repository**:
+1. **Fork the repository**:
    ```bash
    # Go to https://github.com/YOUR-USERNAME/Mission-Logic-Engine.git
    # Click "Fork" button
    ```
 
-2. **They clone their fork**:
+2. **Clone their fork**:
    ```bash
    git clone https://github.com/YOUR-USERNAME/Mission-Logic-Engine.git
    cd Mission-Logic-Engine
    ```
 
-3. **They follow OS-specific setup**:
+3. **Follow OS-specific setup**:
    - Windows: `SETUP_WINDOWS.md`
    - Linux: `SETUP_LINUX.md`
    - ~~macOS: `SETUP_MACOS.md`~~
 
-4. **They add upstream remote**:
+4. **Add upstream remote**:
    ```bash
    git remote add upstream https://github.com/Phoenix-UAV/Mission-Logic-Engine.git
    ```
 
-5. **They create a branch**:
+5. **Create a branch**:
    ```bash
    git checkout -b feature/their-feature
    ```
