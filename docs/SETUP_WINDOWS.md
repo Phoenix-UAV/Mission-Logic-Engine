@@ -73,7 +73,7 @@ cd C:\Users\YourUsername\Documents
 
 # Clone the repository
 git clone https://github.com/Phoenix-UAV/Mission-Logic-Engine.git
-cd drone-gcs
+cd Mission-Logic-Engine
 
 # List contents to verify
 dir
@@ -116,7 +116,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ## 📥 Step 4: Install Python Dependencies
 
 ```powershell
-# Make sure you're in the drone-gcs directory with venv activated
+# Make sure you're in the Mission-Logic-Engine directory with venv activated
 pip install --upgrade pip
 
 # Install all dependencies
@@ -153,17 +153,17 @@ mavproxy              1.8.73
 cd docker
 
 # Build the Docker image (takes ~10-15 minutes)
-docker build -t drone-gcs-ros2:latest .
+docker build -t Mission-Logic-Engine-ros2:latest .
 
 # Verify image was built
-docker images | Select-String "drone-gcs-ros2"
+docker images | Select-String "Mission-Logic-Engine-ros2"
 ```
 
 ### 5.3 Test Docker Setup
 
 ```powershell
 # Run a test container
-docker run --rm drone-gcs-ros2:latest ros2 --version
+docker run --rm Mission-Logic-Engine-ros2:latest ros2 --version
 
 # Expected output: ROS 2 rolling 20XX-XX-XX (or similar)
 ```
@@ -243,7 +243,7 @@ MAVProxy OK
 
 ```powershell
 # Test ROS2 in Docker
-docker run --rm drone-gcs-ros2:latest ros2 topic list
+docker run --rm Mission-Logic-Engine-ros2:latest ros2 topic list
 ```
 
 ### 8.3 Test MAVProxy
@@ -311,7 +311,7 @@ Once installation is verified:
 2. **Start ROS2 Container**:
    ```powershell
    # Terminal 2
-   docker run -it --rm --network=host drone-gcs-ros2:latest
+   docker run -it --rm --network=host Mission-Logic-Engine-ros2:latest
    # Inside container: ros2 launch custom_gcs gcs.launch.py
    ```
 
@@ -345,7 +345,7 @@ timeout /t 3
 
 REM Start Docker ROS2 container
 echo Starting ROS2 Docker container...
-start "ROS2" cmd /k docker run -it --rm --network=host drone-gcs-ros2:latest bash
+start "ROS2" cmd /k docker run -it --rm --network=host Mission-Logic-Engine-ros2:latest bash
 
 REM Open Mission Planner (if installed)
 echo Mission Planner should be opened manually or run from start menu

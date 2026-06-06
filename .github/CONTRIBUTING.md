@@ -14,7 +14,7 @@ Click "Fork" on GitHub to create your own copy.
 
 ```bash
 git clone https://github.com/YOUR-OWN-USERNAME/Mission-Logic-Engine.git
-cd drone-gcs
+cd Mission-Logic-Engine
 git remote add upstream https://github.com/Phoenix-UAV/Mission-Logic-Engine.git
 ```
 
@@ -499,7 +499,7 @@ Contributors will be recognized in:
 - **Setup help**: Check [SETUP_WINDOWS.md](SETUP_WINDOWS.md) or [SETUP_LINUX.md](SETUP_LINUX.md)
 - **Architecture questions**: See [PlantUML Guide](docs/architecture/PLANTUML_DIAGRAMS_GUIDE.md)
 - **General questions**: Open GitHub Discussion
-- **Chat**: Discord #drone-gcs channel
+- **Chat**: Discord #Mission-Logic-Engine channel
 
 ---
 

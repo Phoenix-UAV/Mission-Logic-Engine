@@ -38,12 +38,36 @@ This repository contains a complete architecture for controlling autonomous fixe
 
 ## 🚀 Quick Start
 
-### 1. Clone the Repository
+### For Each Team Member
 
-```bash
-git clone https://github.com/Phoenix-UAV/Mission-Logic-Engine.git
-cd Mission-Logic-Engine
-```
+1. **They fork the repository**:
+   ```bash
+   # Go to https://github.com/YOUR-USERNAME/Mission-Logic-Engine.git
+   # Click "Fork" button
+   ```
+
+2. **They clone their fork**:
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/Mission-Logic-Engine.git
+   cd Mission-Logic-Engine
+   ```
+
+3. **They follow OS-specific setup**:
+   - Windows: `SETUP_WINDOWS.md`
+   - Linux: `SETUP_LINUX.md`
+   - macOS: `SETUP_MACOS.md`
+
+4. **They add upstream remote**:
+   ```bash
+   git remote add upstream https://github.com/Phoenix-UAV/Mission-Logic-Engine.git
+   ```
+
+5. **They create a branch**:
+   ```bash
+   git checkout -b feature/their-feature
+   ```
+
+6. **They make changes and submit PR** (see CONTRIBUTING.md)
 
 ### 2. Run OS-Specific Setup
 
@@ -312,11 +336,11 @@ mission:
 |----------|---------|
 | [SETUP_WINDOWS.md](docs/SETUP_WINDOWS.md) | Detailed Windows installation |
 | [SETUP_LINUX.md](docs/SETUP_LINUX.md) | Detailed Linux installation |
-| [SETUP_MACOS.md](docs/SETUP_MACOS.md) | Detailed macOS installation |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design & data flows |
-| [HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md) | Physical connections |
-| [API_REFERENCE.md](docs/API_REFERENCE.md) | ROS2 topics & messages |
-| [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues & fixes |
+| [SETUP_MACOS.md](docs/SETUP_MACOS.md) | Detailed macOS installation (TODO -Rohan 6/6/26)|
+| [ARCHITECTURE.md](docs/diagrams/PLANTUML_DIAGRAMS_GUIDE.md) | System design & data flows |
+| [HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md) | Physical connections (TODO -Rohan 6/6/26)|
+| [API_REFERENCE.md](docs/API_REFERENCE.md) | ROS2 topics & messages (TODO -Rohan 6/6/26)|
+| [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues & fixes (TODO -Rohan 6/6/26)|
 
 ---
 

@@ -6,16 +6,16 @@ services:
     build:
       context: docker
       dockerfile: Dockerfile
-    container_name: drone-gcs-ros2
+    container_name: Mission-Logic-Engine-ros2
     
     # Use host network for localhost connections to MAVProxy
     network_mode: host
     
     # Mount source code for live development
     volumes:
-      - ./src:/home/ros/drone-gcs/src:rw
-      - ./config:/home/ros/drone-gcs/config:rw
-      - ./data:/home/ros/drone-gcs/data:rw
+      - ./src:/home/ros/Mission-Logic-Engine/src:rw
+      - ./config:/home/ros/Mission-Logic-Engine/config:rw
+      - ./data:/home/ros/Mission-Logic-Engine/data:rw
       - /tmp/.X11-unix:/tmp/.X11-unix:rw  # For GUI apps (optional)
     
     # Environment variables
@@ -57,7 +57,7 @@ services:
   # (Optional) Database for mission logging
   # postgres-logs:
   #   image: postgres:15-alpine
-  #   container_name: drone-gcs-db
+  #   container_name: Mission-Logic-Engine-db
   #   environment:
   #     POSTGRES_USER: gcs
   #     POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
@@ -76,7 +76,7 @@ services:
   # (Optional) Redis for real-time telemetry caching
   # redis-cache:
   #   image: redis:7-alpine
-  #   container_name: drone-gcs-redis
+  #   container_name: Mission-Logic-Engine-redis
   #   ports:
   #     - "6379:6379"
   #   volumes:
@@ -96,7 +96,7 @@ volumes:
 # Networks
 networks:
   default:
-    name: drone-gcs-network
+    name: Mission-Logic-Engine-network
     driver: bridge
 
 # Override file for local development
@@ -111,8 +111,8 @@ networks:
 #       context: docker
 #       target: development  # Use dev target with extra tools
 #     volumes:
-#       - ./src:/home/ros/drone-gcs/src:rw
-#       - ./.vscode:/home/ros/drone-gcs/.vscode:ro
+#       - ./src:/home/ros/Mission-Logic-Engine/src:rw
+#       - ./.vscode:/home/ros/Mission-Logic-Engine/.vscode:ro
 #
 #   postgres-logs:
 #     enabled: true

@@ -63,7 +63,7 @@ cd ~/projects
 
 # Clone the repository
 git clone https://github.com/Phoenix-UAV/Mission-Logic-Engine.git
-cd drone-gcs
+cd Mission-Logic-Engine
 
 # List contents
 ls -la
@@ -181,17 +181,17 @@ docker run hello-world
 cd docker
 
 # Build the Docker image (takes ~10-15 minutes)
-docker build -t drone-gcs-ros2:latest .
+docker build -t Mission-Logic-Engine-ros2:latest .
 
 # Verify image was built
-docker images | grep drone-gcs-ros2
+docker images | grep Mission-Logic-Engine-ros2
 ```
 
 ### 7.3 Test Docker Setup
 
 ```bash
 # Run a test container
-docker run --rm drone-gcs-ros2:latest ros2 --version
+docker run --rm Mission-Logic-Engine-ros2:latest ros2 --version
 
 # Expected output: ROS 2 rolling
 ```
@@ -297,7 +297,7 @@ ros2 doctor
 
 ```bash
 # Test ROS2 in Docker
-docker run --rm drone-gcs-ros2:latest ros2 topic list
+docker run --rm Mission-Logic-Engine-ros2:latest ros2 topic list
 ```
 
 ### 10.4 Test MAVProxy
@@ -355,7 +355,7 @@ if command -v ros2 &> /dev/null; then
     ROS2_PID=$!
 else
     echo "ROS2 not found. Starting in Docker instead..."
-    docker run -it --rm --network=host drone-gcs-ros2:latest ros2 launch custom_gcs gcs.launch.py &
+    docker run -it --rm --network=host Mission-Logic-Engine-ros2:latest ros2 launch custom_gcs gcs.launch.py &
     ROS2_PID=$!
 fi
 
@@ -465,7 +465,7 @@ mavproxy.py --master=/dev/ttyUSB0:57600 --out=127.0.0.1:14550
 ros2 launch custom_gcs gcs.launch.py
 
 # Start Docker container
-docker run -it --rm --network=host drone-gcs-ros2:latest bash
+docker run -it --rm --network=host Mission-Logic-Engine-ros2:latest bash
 ```
 
 ---
