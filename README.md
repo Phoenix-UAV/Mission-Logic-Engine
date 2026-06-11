@@ -60,14 +60,21 @@ This repository contains a complete architecture for controlling autonomous fixe
 4. **Add upstream remote**:
    ```bash
    git remote add upstream https://github.com/Phoenix-UAV/Mission-Logic-Engine.git
+   git remote add origin https://github.com/YOUR-USERNAME/Mission-Logic-Engine.git
    ```
 
 5. **Create a branch**:
    ```bash
-   git checkout -b feature/their-feature
+   git checkout -b feature/your-feature
+   ```
+6. ** update to the upstream(main branch on Phoenix repo)
+   ```bash
+   git pull upstream main
+   git push upstream feature/your-feature # this will create a new branch on YOUR repository
+   # then on github you'll be able to make a compare and pull request.
    ```
 
-6. **They make changes and submit PR** (see CONTRIBUTING.md)
+  **They make changes and submit PR** (see [CONTRIBUTING.md](https://github.com/Phoenix-UAV/Mission-Logic-Engine/edit/main/README.md))
 
 ### 2. Run OS-Specific Setup
 
