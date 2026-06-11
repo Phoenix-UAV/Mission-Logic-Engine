@@ -70,7 +70,7 @@ This repository contains a complete architecture for controlling autonomous fixe
 6. ** update to the upstream(main branch on Phoenix repo)
    ```bash
    git pull upstream main
-   git push upstream feature/your-feature # this will create a new branch on YOUR repository
+   git push upstream origin # this will create a new branch on YOUR repository
    # then on github you'll be able to make a compare and pull request.
    ```
 
