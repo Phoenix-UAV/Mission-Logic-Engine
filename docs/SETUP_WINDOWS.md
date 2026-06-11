@@ -65,19 +65,27 @@ Before starting, ensure you have:
 
 ---
 
-## 🚀 Step 2: Clone Repository
+## 🚀 Step 2: Clone Repository (If you already did this from reading the README file, skip this part!)
 
 ```powershell
 # Navigate to desired directory
 cd C:\Users\YourUsername\Documents
-
-# Clone the repository
-git clone https://github.com/Phoenix-UAV/Mission-Logic-Engine.git
-cd Mission-Logic-Engine
-
 # List contents to verify
 dir
 ```
+1. **Fork the repository**:
+   ```bash
+   # Go to https://github.com/YOUR-USERNAME/Mission-Logic-Engine.git
+   # Click "Fork" button
+   ```
+
+2. **Clone your fork**:
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/Mission-Logic-Engine.git
+   cd Mission-Logic-Engine
+   ```
+# List contents to verify
+dir
 
 Expected output:
 ```
