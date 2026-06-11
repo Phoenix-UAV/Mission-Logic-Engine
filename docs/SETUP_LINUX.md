@@ -56,23 +56,19 @@ pip3 --version
 Run `sudo pacman -S python`
 ---
 
-## 📦 Step 3: Clone Repository
+## 📦 Step 3: Fork and clone Repository
 
-```bash
-# Create projects directory (optional)
-mkdir -p ~/projects
-cd ~/projects
+1. **Fork the repository**:
+   ```bash
+   # Go to https://github.com/YOUR-USERNAME/Mission-Logic-Engine.git
+   # Click "Fork" button
+   ```
 
-# Clone the repository
-git clone https://github.com/Phoenix-UAV/Mission-Logic-Engine.git
-cd Mission-Logic-Engine
-
-# List contents
-ls -la
-
-# You should see:
-# docs/  src/  tests/  docker/  README.md  requirements.txt  etc.
-```
+2. **Clone your fork**:
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/Mission-Logic-Engine.git
+   cd Mission-Logic-Engine
+   ```
 
 ---
 
