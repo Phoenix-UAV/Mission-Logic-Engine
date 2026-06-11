@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  # ROS2 Humble environment for custom GCS
+  ros2-gcs:
+    build:
+      context: docker
+      dockerfile: Dockerfile
+    container_name: Mission-Logic-Engine-ros2
+    
+    # Use host network for localhost connections to MAVProxy
+    network_mode: host
+    
+    # Mount source code for live development
+    volumes:
+      - ./src:/home/ros/Mission-Logic-Engine/src:rw
+      - ./config:/home/ros/Mission-Logic-Engine/config:rw
+      - ./data:/home/ros/Mission-Logic-Engine/data:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw  # For GUI apps (optional)
+    
+    # Environment variables
+    environment:
+      - ROS_DOMAIN_ID=0
+      - ROS_LOCALHOST_ONLY=0
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - PYTHONUNBUFFERED=1
+    
+    # Interactive terminal
+    stdin_open: true
+    tty: true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "ros2", "doctor"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Entry point command
+    command: /bin/bash
+
+  # (Optional) Database for mission logging
+  # postgres-logs:
+  #   image: postgres:15-alpine
+  #   container_name: Mission-Logic-Engine-db
+  #   environment:
+  #     POSTGRES_USER: gcs
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+  #     POSTGRES_DB: drone_missions
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U gcs"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # (Optional) Redis for real-time telemetry caching
+  # redis-cache:
+  #   image: redis:7-alpine
+  #   container_name: Mission-Logic-Engine-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+# Volumes for persistent data
+volumes:
+  postgres-data:
+  redis-data:
+
+# Networks
+networks:
+  default:
+    name: Mission-Logic-Engine-network
+    driver: bridge
+
+# Override file for local development
+# This allows uncommenting additional services for development
+#
+# Example docker-compose.override.yml:
+#
+# version: '3.8'
+# services:
+#   ros2-gcs:
+#     build:
+#       context: docker
+#       target: development  # Use dev target with extra tools
+#     volumes:
+#       - ./src:/home/ros/Mission-Logic-Engine/src:rw
+#       - ./.vscode:/home/ros/Mission-Logic-Engine/.vscode:ro
+#
+#   postgres-logs:
+#     enabled: true
+#
+#   redis-cache:
+#     enabled: true

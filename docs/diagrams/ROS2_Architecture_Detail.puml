@@ -1,0 +1,342 @@
+@startuml ROS2_Architecture_Detail
+!theme plain
+title ROS2 Middleware Architecture & Message Flow\nCustom GCS Software Communication
+
+skinparam BackgroundColor #FFFFFF
+skinparam DefaultFontSize 10
+skinparam ComponentBorderColor #1565C0
+skinparam InterfaceFontSize 9
+
+' ============================================================================
+' ROS2 DOMAIN AND MIDDLEWARE
+' ============================================================================
+
+package "ROS2 Humble Middleware (Domain ID: 0)" #E3F2FD {
+
+    ' ========== PUBLISHERS ==========
+    
+    package "Publishers (Data Sources)" #C8E6C9 {
+        
+        component "MAVLink Telemetry Publisher" as TelemetryPub {
+            interface "In: TCP:14551\n(MAVProxy output)" as TelPub_In
+            interface "Out: /vehicle/telemetry" as TelPub_Out
+        }
+        
+        component "Video Stream Publisher" as VideoPub {
+            interface "In: Ethernet\n(Siyi Ground HM30)" as VidPub_In
+            interface "Out: /camera/frames" as VidPub_Out
+        }
+        
+        component "System Status Publisher\n(optional)" as StatusPub {
+            interface "Out: /system/status" as StatusPub_Out
+        }
+    }
+
+    ' ========== SUBSCRIBERS & PROCESSING ==========
+    
+    package "Custom GCS Software\n(Mission Logic Engine)" #FFECB3 {
+        
+        component "State Manager" as StateManager {
+            interface "Sub: /vehicle/telemetry" as SM_Telem
+            interface "Internal: vehicle_state\n{position, velocity,\nattitude, battery,...}" as SM_State
+        }
+        
+        component "Vision Pipeline" as VisionPipe {
+            interface "Sub: /camera/frames" as VP_Video
+            interface "Internal: OpenCV\nPreprocessing" as VP_OpenCV
+            interface "Internal: YOLOv8\nInference" as VP_YOLO
+            interface "Internal: detections\n{class, confidence, bbox}" as VP_Output
+        }
+        
+        component "Mission Decision Engine" as MissionEngine {
+            interface "Sub: vehicle_state" as ME_State
+            interface "Sub: vision_detections" as ME_Vision
+            interface "Internal: mission_plan\nlogic execution" as ME_Logic
+            interface "Out: /mission/commands" as ME_Commands
+        }
+        
+        component "Logging & Monitoring" as Logging {
+            interface "Sub: /vehicle/telemetry" as Log_Telem
+            interface "Sub: /camera/frames" as Log_Video
+            interface "Sub: /mission/commands" as Log_Commands
+            interface "Internal: write to\nlocal .csv/.log files" as Log_File
+        }
+    }
+
+    ' ========== COMMAND INTERFACE ==========
+    
+    package "Command Output (Dronekit Interface)" #FFE0B2 {
+        
+        component "DroneKit-Python Wrapper" as DroneKitNode {
+            interface "Sub: /mission/commands" as DK_Sub
+            interface "MAVLink Command Generator" as DK_Converter
+            interface "Out: TCP:14552\n(MAVProxy input)" as DK_Out
+        }
+    }
+
+    ' ========== INTERNAL CONNECTIONS ==========
+    
+    ' Telemetry flow
+    TelPub_In --> TelemetryPub
+    TelemetryPub --> TelPub_Out
+    TelPub_Out -- SM_Telem : "ROS2 Topic\nSubscription"
+    SM_Telem --> StateManager
+    StateManager --> SM_State
+    SM_State -- ME_State : "Internal\nMessage"
+    
+    ' Video flow
+    VidPub_In --> VideoPub
+    VideoPub --> VidPub_Out
+    VidPub_Out -- VP_Video : "ROS2 Topic\nSubscription"
+    VP_Video --> VisionPipe
+    VisionPipe --> VP_OpenCV : "frame processing"
+    VP_OpenCV --> VP_YOLO : "preprocessed\nframe"
+    VP_YOLO --> VP_Output : "detection\nresults"
+    VP_Output -- ME_Vision : "Internal\nMessage"
+    
+    ' Mission logic
+    ME_State --> MissionEngine
+    ME_Vision --> MissionEngine
+    MissionEngine --> ME_Logic
+    ME_Logic --> ME_Commands
+    ME_Commands -- DK_Sub : "ROS2 Topic\nSubscription"
+    
+    ' Logging
+    TelPub_Out -- Log_Telem : "Subscription"
+    VidPub_Out -- Log_Video : "Subscription"
+    ME_Commands -- Log_Commands : "Subscription"
+    Log_Telem --> Logging
+    Log_Video --> Logging
+    Log_Commands --> Logging
+    Logging --> Log_File
+    
+    ' Command output
+    DK_Sub --> DroneKitNode
+    DroneKitNode --> DK_Converter : "Create\nMAVLink\npackets"
+    DK_Converter --> DK_Out
+}
+
+' ============================================================================
+' EXTERNAL SYSTEMS (OUTSIDE ROS2)
+' ============================================================================
+
+package "External Systems (Outside ROS2)" #F3E5F5 {
+    
+    component "MAVProxy\n(TCP Bridge)" as MAVProxyExt {
+        interface "TCP:14551\nPublish Telemetry" as MP_Pub
+        interface "TCP:14552\nSubscribe Commands" as MP_Sub
+    }
+    
+    component "Siyi HM30 Ground Unit\n(Ethernet Interface)" as SiyiExt {
+        interface "Ethernet Video Stream" as Siyi_Video
+    }
+    
+    component "Mission Planner\n(Optional, Monitoring)" as MPExt {
+        interface "TCP:14550\n(separate connection)" as MP_Ext
+    }
+}
+
+' External connections to ROS2
+TelPub_In -- MP_Pub : "Subscribe\ntelemetry"
+DK_Out -- MP_Sub : "Publish\ncommands"
+VidPub_In -- Siyi_Video : "Receive\nvideo stream"
+MP_Ext -- MP_Ext : "(independent\nconnection)"
+
+' ============================================================================
+' ROS2 TOPIC SPECIFICATIONS
+' ============================================================================
+
+note right of TelPub_Out
+  **Topic: /vehicle/telemetry**
+  Message Type: geometry_msgs/TwistStamped + Custom
+  Fields:
+    • timestamp (float64)
+    • position.lat, .lon, .alt (float64)
+    • velocity.x, .y, .z (float32)
+    • attitude.roll, .pitch, .yaw (float32)
+    • attitude_rate.p, .q, .r (float32)
+    • battery.voltage (float32)
+    • battery.current (float32)
+    • battery.remaining (float32)
+    • gps.fix_type (uint8)
+    • armed (bool)
+    • flight_mode (string)
+  Frequency: 5-10 Hz (MAVLink 50Hz → ROS2 10Hz after filtering)
+  QoS: BEST_EFFORT
+end note
+
+note right of VidPub_Out
+  **Topic: /camera/frames**
+  Message Type: sensor_msgs/CompressedImage
+  Fields:
+    • header.stamp (time)
+    • header.frame_id (string)
+    • format (string) - "jpeg" or "h264"
+    • data (uint8[]) - compressed image
+  Frequency: 20-30 Hz
+  QoS: BEST_EFFORT (allow drops)
+  Size: ~50-150 KB/frame (compressed)
+end note
+
+note right of ME_Commands
+  **Topic: /mission/commands**
+  Message Type: geometry_msgs/TwistStamped
+  Possible Command Types:
+    • set_mode {GUIDED, AUTO, LAND, ...}
+    • arm {true/false}
+    • set_position_target {lat, lon, alt, heading}
+    • set_velocity_target {vx, vy, vz}
+    • set_attitude_target {roll, pitch, yaw, throttle}
+    • trigger_payload {action_id, param}
+  Frequency: On-demand (0-10 Hz max)
+  QoS: RELIABLE
+end note
+
+note right of StatusPub_Out
+  **Topic: /system/status** (Optional)
+  Message Type: Custom diagnostics_msgs
+  Fields:
+    • mission_state (enum)
+    • last_vision_detection (time)
+    • cpu_usage (float)
+    • memory_usage (float)
+    • inference_latency (float)
+    • command_latency (float)
+  Frequency: 1 Hz
+  QoS: BEST_EFFORT
+end note
+
+note bottom of MissionEngine
+  **Mission Logic Pseudocode:**
+  
+  LOOP (every 100-500ms):
+    1. Read latest vehicle_state
+    2. Read latest vision_detections
+    3. IF vision_detections.empty:
+       → Continue current mission
+    4. ELSE IF (detected_object matches_target):
+       → Calculate intercept point
+       → Update position_target
+       → Publish SET_POSITION_TARGET command
+    5. ELSE:
+       → Log detection
+       → Continue search pattern
+    6. Check safety constraints:
+       → battery_level > minimum
+       → altitude < max_altitude
+       → distance < max_range
+    7. IF constraint_violated:
+       → Publish RTH command
+       → Exit mission loop
+  END LOOP
+end note
+
+note bottom of Logging
+  **Local Logging (Docker Container /data mount):**
+  
+  Files created:
+  • mission_YYYYMMDD_HHMMSS.csv
+    Columns: timestamp, lat, lon, alt, vx, vy, vz
+  
+  • vision_YYYYMMDD_HHMMSS.log
+    {timestamp, detections[], inference_time}
+  
+  • commands_YYYYMMDD_HHMMSS.log
+    {timestamp, command_type, params}
+  
+  • gcs_YYYYMMDD_HHMMSS.log
+    General GCS events and errors
+end note
+
+' ============================================================================
+' PROCESSING PIPELINE LATENCIES
+' ============================================================================
+
+package "Processing Latency Breakdown" #F1F8E9 {
+    
+    component "Telemetry Processing Chain" as TelLatency {
+        note right
+            LoRa RX (50-200ms)
+            → MAVProxy forward (5-10ms)
+            → ROS2 network (5-10ms)
+            → State Manager (10-20ms)
+            → Mission Engine (20-50ms)
+            → Decision output (10ms)
+            ─────────────────────
+            TOTAL: 100-290ms
+            (acceptable for autonomous mission)
+        end note
+    }
+    
+    component "Vision Processing Chain" as VidLatency {
+        note right
+            Siyi RX (20-100ms)
+            → ROS2 Pub (5-10ms)
+            → OpenCV preprocess (5-20ms)
+            → YOLOv8 inference (30-50ms on CPU)
+            → Detection output (5-10ms)
+            → Mission logic (20-50ms)
+            ─────────────────────
+            TOTAL: 85-240ms
+            (good for real-time CV tasks)
+        end note
+    }
+    
+    component "Command Output Chain" as CmdLatency {
+        note right
+            Mission logic decision (10-50ms)
+            → ROS2 Pub (5-10ms)
+            → DroneKit convert (10-20ms)
+            → MAVProxy forward (5-10ms)
+            → LoRa TX (50-200ms)
+            → Pixhawk process (20-50ms)
+            ─────────────────────
+            TOTAL: 100-340ms
+            (acceptable for non-critical commands)
+        end note
+    }
+}
+
+' ============================================================================
+' ROS2 NODE DEPENDENCY GRAPH
+' ============================================================================
+
+package "ROS2 Node Startup Order" #E8EAF6 {
+    
+    component "1. Launch MAVProxy\n(external, pre-Docker)" as Order1 {
+    }
+    
+    component "2. Telemetry Publisher\n(connects to MAVProxy TCP:14551)" as Order2 {
+    }
+    
+    component "3. Video Publisher\n(connects to Siyi Ethernet)" as Order3 {
+    }
+    
+    component "4. Custom GCS Node\n(subscribes to telemetry + video)" as Order4 {
+    }
+    
+    component "5. DroneKit Wrapper\n(subscribes to commands)" as Order5 {
+    }
+    
+    Order1 --> Order2
+    Order2 --> Order3
+    Order3 --> Order4
+    Order4 --> Order5
+    
+    note right of Order1
+        Must be running FIRST
+        (external process)
+    end note
+    
+    note right of Order4
+        Critical node - all logic
+        Handles blocking operations gracefully
+    end note
+    
+    note right of Order5
+        Last to start
+        Depends on all upstream nodes
+    end note
+}
+
+@enduml
