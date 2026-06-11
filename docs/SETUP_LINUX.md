@@ -36,9 +36,9 @@ sudo apt install -y git curl wget
 ---
 
 ## 🐍 Step 2: Install Python and Pip
-
 Ubuntu 22.04+ comes with Python 3.10+, but let's verify:
 
+### Debian-based Systems
 ```bash
 # Check Python version
 python3 --version
@@ -52,6 +52,8 @@ sudo apt install -y python3-pip python3-dev python3-venv
 pip3 --version
 ```
 
+### Arch-based Systems
+Run `sudo pacman -S python`
 ---
 
 ## 📦 Step 3: Clone Repository
