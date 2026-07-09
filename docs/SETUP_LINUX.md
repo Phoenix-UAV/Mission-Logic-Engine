@@ -1,27 +1,21 @@
 # Linux/Ubuntu Setup Guide
-
-**Platform**: Ubuntu 22.04 LTS / Ubuntu 24.04 LTS  
+**Platform**: Debian-based / Arch-based Linux OS
 **Setup Time**: 30-45 minutes  
 **Difficulty**: Low  
-**Docker Optional**: Yes (ROS2 can run natively)
+**Docker**: Optional
 
----
 
-## 📋 Prerequisites
-
+## Prerequisites
 Before starting, ensure you have:
 
-- [ ] Ubuntu 22.04 LTS or 24.04 LTS installed
-- [ ] Sudo access (administrator rights)
-- [ ] 10 GB free disk space
-- [ ] 8 GB RAM (16 GB recommended)
-- [ ] Stable internet connection
-- [ ] USB port for LoRa module (for testing)
+- Sudo access (administrator rights)
+- 10 GB free disk space
+- 8 GB RAM (16 GB recommended)
+- Stable internet connection
+- USB port for LoRa module (for testing)
 
----
 
-## 🔧 Step 1: Update System
-
+## Step 1: Update System
 ```bash
 # Update package lists
 sudo apt update
@@ -33,31 +27,29 @@ sudo apt upgrade -y
 sudo apt install -y git curl wget
 ```
 
----
 
-## 🐍 Step 2: Install Python and Pip
-Ubuntu 22.04+ comes with Python 3.10+, but let's verify:
-
+## Step 2: Install Python and Pip
 ### Debian-based Systems
+Check if you have `python3` installed:
 ```bash
-# Check Python version
-python3 --version
+which python3
+```
 
-# Should show Python 3.10 or newer
-
-# Install pip if needed
+If no file path is outputted, then install Python 3:
+```bash
 sudo apt install -y python3-pip python3-dev python3-venv
+```
 
-# Verify pip
-pip3 --version
+Ensure Python is version 3.14 or newer:
+```bash
+python3 --version
 ```
 
 ### Arch-based Systems
-Run `sudo pacman -S python`
----
+Run `sudo pacman -S --needed python`.
 
-## 📦 Step 3: Fork and clone Repository
 
+## Step 3: Fork and clone Repository
 1. **Fork the repository**:
    ```bash
    # Go to https://github.com/YOUR-USERNAME/Mission-Logic-Engine.git
@@ -70,53 +62,33 @@ Run `sudo pacman -S python`
    cd Mission-Logic-Engine
    ```
 
----
 
-## 🐍 Step 4: Create Python Virtual Environment
-
+## Step 4: Create Python Virtual Environment
 ```bash
 # Create virtual environment
 python3 -m venv venv
 
 # Activate virtual environment
 source venv/bin/activate
-
-# You should see (venv) in your prompt now
 ```
 
----
+You should see `(venv)` at the start of the command prompt, like so: `(venv) user~$`.
 
-## 📥 Step 5: Install Python Dependencies
 
+## Step 5: Install Python Dependencies
 ```bash
-# Make sure venv is activated
-source venv/bin/activate
-
 # Upgrade pip
-pip install --upgrade pip
+pip install --upgrade pip setuptools wheel
 
 # Install all dependencies
 pip install -r requirements.txt
-
-# Verify key packages
-pip list | grep -E "dronekit|opencv|ultralytics|mavproxy"
 ```
 
-Expected output:
-```
-dronekit              2.9.2
-dronekit-sitl         3.3.0
-opencv-python         4.8.0
-ultralytics           8.0.0
-mavproxy              1.8.73
-```
+If there are any issues installing the packages in `requirements.txt`, please post the issue in our
+[GitHub repository](https://github.com/Phoenix-UAV/Mission-Logic-Engine/issues).
 
----
-
-## 🤖 Step 6: Install ROS2 Humble
-
+## Step 6: Install ROS2 Humble
 ### Option A: Native ROS2 (Recommended)
-
 ROS2 Humble is officially supported on Ubuntu 22.04:
 
 ```bash
@@ -151,7 +123,7 @@ If you prefer Docker (more isolated), see Step 7.
 
 ---
 
-## 🐳 Step 7: Docker Setup (Optional)
+## Step 7: Docker Setup (Optional)
 
 If you want ROS2 in Docker instead of native:
 
@@ -196,9 +168,9 @@ docker run --rm Mission-Logic-Engine-ros2:latest ros2 --version
 
 ---
 
-## ⚙️ Step 8: Install Mission Planner ~~(Optional)~~
+## Step 8: Install Mission Planner
 
-Mission Planner via Mono ~~(for analysis only, not critical)~~:
+Mission Planner via Mono:
 
 ```bash
 # Install Mono runtime
@@ -227,12 +199,10 @@ cd ~/MissionPlanner
 mono MissionPlanner.exe &
 ```
 
----
 
-## 🔌 Step 9: Setup Hardware Connections (Optional)
+## Step 9: Setup Hardware Connections (Optional)
 
 ### 9.1 LoRa Module Connection
-
 1. Connect LoRa LR900-F module via USB
 2. Check device listing:
    ```bash
@@ -256,7 +226,7 @@ mono MissionPlanner.exe &
 
 ---
 
-## ✅ Step 10: Verify Installation
+## Step 10: Verify Installation
 
 ### 10.1 Test Python Environment
 
@@ -312,62 +282,9 @@ mavproxy.py --version
 
 ---
 
-## 🚀 Step 11: Create Startup Scripts
-
+## Step 11: Running Startup Scripts
 ### 11.1 Main Startup Script
-
-Create `start_gcs.sh`:
-
-```bash
-#!/bin/bash
-
-# Script to start all GCS components
-
-echo "Starting Drone GCS on Linux..."
-
-# Get script directory
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd "$SCRIPT_DIR"
-
-# Activate Python venv
-source venv/bin/activate
-
-# Source ROS2 (if native install)
-source /opt/ros/humble/setup.bash
-
-# Start MAVProxy in background
-echo "Starting MAVProxy..."
-mavproxy.py --master=/dev/ttyUSB0:57600 \
-  --out=127.0.0.1:14550 \
-  --out=127.0.0.1:14551 \
-  --out=127.0.0.1:14552 &
-MAVPROXY_PID=$!
-
-# Wait for MAVProxy to start
-sleep 2
-
-# Start ROS2 nodes
-echo "Starting ROS2 nodes..."
-if command -v ros2 &> /dev/null; then
-    ros2 launch custom_gcs gcs.launch.py &
-    ROS2_PID=$!
-else
-    echo "ROS2 not found. Starting in Docker instead..."
-    docker run -it --rm --network=host Mission-Logic-Engine-ros2:latest ros2 launch custom_gcs gcs.launch.py &
-    ROS2_PID=$!
-fi
-
-echo "All components started."
-echo "MAVProxy PID: $MAVPROXY_PID"
-echo "ROS2 PID: $ROS2_PID"
-echo ""
-echo "Press Ctrl+C to stop all components"
-
-# Wait for both processes
-wait $MAVPROXY_PID $ROS2_PID
-```
-
-Make it executable:
+Make the `start_gcs.sh` script executable:
 
 ```bash
 chmod +x start_gcs.sh
@@ -381,7 +298,7 @@ chmod +x start_gcs.sh
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Problem: "ros2 command not found"
 
@@ -437,7 +354,7 @@ sudo apt upgrade -y
 
 ---
 
-## 📝 Linux Quick Commands
+## Linux Quick Commands
 
 ```bash
 # Activate Python venv
@@ -466,9 +383,8 @@ ros2 launch custom_gcs gcs.launch.py
 docker run -it --rm --network=host Mission-Logic-Engine-ros2:latest bash
 ```
 
----
 
-## 🚀 Next Steps
+## Next Steps
 
 Once installation is verified:
 
@@ -498,27 +414,6 @@ Once installation is verified:
    - [First Flight Guide](../docs/guides/FIRST_FLIGHT.md)
    - [ROS2 Architecture](../docs/architecture/PLANTUML_DIAGRAMS_GUIDE.md)
 
----
-
-## ✅ Linux Setup Checklist
-
-- [ ] Ubuntu 22.04 or 24.04 LTS installed
-- [ ] System updated (apt update/upgrade)
-- [ ] Git installed and repo cloned
-- [ ] Python 3.10+ verified
-- [ ] Virtual environment created and activated
-- [ ] Python dependencies installed
-- [ ] ROS2 Humble installed (native or Docker)
-- [ ] Mission Planner installed (optional)
-- [ ] Hardware connections tested (if available)
-- [ ] All verification tests passed
-- [ ] Startup scripts created
-
----
-
-**Linux setup complete! You're ready to run the custom GCS software.** 🎉
-
-Next: [FIRST_FLIGHT.md](../docs/guides/FIRST_FLIGHT.md)
 
 ---
 
