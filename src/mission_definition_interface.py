@@ -1,3 +1,4 @@
+"""File containing the MissionEditorApp class."""
 import tkinter as tk
 from tkinter import simpledialog, messagebox, filedialog
 import os
@@ -5,78 +6,86 @@ import json
 import shutil
 
 class Node:
-    def __init__(self, node_id, name, x, y, is_root=False):
-        self.id = node_id
-        self.name = name
-        self.x = x
-        self.y = y
-        self.is_root = is_root
-        self.code = f"def run():\n    # Return an integer based on conditions\n    return 0\n"
-        self.connections = {}  # int -> target_node_id
+    """Node class for the Mission Editor."""
+    def __init__(self, node_id: int, name: str, x: int, y: int, is_root: bool = False):
+        self.id: int = node_id
+        self.name: str = name
+        self.x: int = x
+        self.y: int = y
+        self.is_root: bool = is_root
+        self.code: str = "def run():\n    # Return an integer based on conditions\n    return 0\n"
+        self.connections: dict[int, int] = {}  # int -> target_node_id
 
 class MissionEditorApp:
-    def __init__(self, root):
-        self.root = root
+    """Mission editor app class."""
+    def __init__(self, tk_root: tk.Tk):
+        self.root: tk.Tk = tk_root
         self.root.title("Mission Definition Interface")
-        self.nodes = []
-        self.selected_node = None
-        self.drag_data = {"x": 0, "y": 0}
-        self.next_id = 1
-        self.mission_folder = None
+        self.nodes: list[Node] = []
+        self.selected_node: Node | None = None
+        self.drag_data: dict[str, int] = {"x": 0, "y": 0}
+        self.next_id: int = 1
+        self.mission_folder: str = ""
 
         # Menu
-        menubar = tk.Menu(root)
+        menubar = tk.Menu(self.root)
         file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="New Mission", command=self.new_mission)
+        file_menu.add_command(label="New Mission",          command=self.new_mission)
         file_menu.add_command(label="Save Mission to Disk", command=self.save_mission_to_disk)
-        file_menu.add_command(label="Load Mission", command=self.load_mission)
+        file_menu.add_command(label="Load Mission",         command=self.load_mission)
         menubar.add_cascade(label="File", menu=file_menu)
-        root.config(menu=menubar)
+        _ = self.root.config(menu=menubar)
 
         # Canvas
-        self.canvas = tk.Canvas(root, bg="#ffffff")
+        self.canvas: tk.Canvas = tk.Canvas(self.root, bg="#ffffff")
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
-        self.canvas.bind("<Double-Button-1>", self.create_node)
-        self.canvas.bind("<ButtonPress-1>", self.on_press)
-        self.canvas.bind("<B1-Motion>", self.on_drag)
-        self.canvas.bind("<ButtonRelease-1>", self.on_release)
+        _ = self.canvas.bind("<Double-Button-1>", self.create_node)
+        _ = self.canvas.bind("<ButtonPress-1>",   self.on_press)
+        _ = self.canvas.bind("<B1-Motion>",       self.on_drag)
+        _ = self.canvas.bind("<ButtonRelease-1>", self.on_release)
 
         # Context Menu
-        self.ctx_menu = tk.Menu(root, tearoff=0)
-        self.ctx_menu.add_command(label="Edit Code", command=self.edit_node_code)
+        self.ctx_menu: tk.Menu = tk.Menu(self.root, tearoff=0)
+        self.ctx_menu.add_command(label="Edit Code",          command=self.edit_node_code)
         self.ctx_menu.add_command(label="Define Transitions", command=self.define_transitions)
-        self.ctx_menu.add_command(label="Set as Root", command=self.set_root)
-        self.canvas.bind("<Button-3>", self.show_context_menu)
+        self.ctx_menu.add_command(label="Set as Root",        command=self.set_root)
+        _ = self.canvas.bind("<Button-3>", self.show_context_menu)
 
     def new_mission(self):
+        """Create a new mission."""
         if self.nodes and not messagebox.askyesno("Confirm", "Clear current mission?"):
             return
         self.nodes = []
         self.selected_node = None
         self.next_id = 1
-        self.mission_folder = None
+        self.mission_folder = ""
         self.canvas.delete("all")
-        messagebox.showinfo("New Mission", "Canvas cleared. Double-click to add nodes.")
+        _ = messagebox.showinfo("New Mission", "Canvas cleared. Double-click to add nodes.")
 
-    def create_node(self, event):
+    def create_node(self, event: tk.Event):
+        """Create a node."""
         name = simpledialog.askstring("Node Name", "Enter node name:")
         if not name:
             return
         if any(n.name == name for n in self.nodes):
-            if not messagebox.askyesno("Duplicate Name", f"Node '{name}' already exists. Continue?"):
+            if not messagebox.askyesno(
+                "Duplicate Name",
+                f"Node '{name}' already exists. Continue?"
+            ):
                 return
 
         nid = self.next_id
         self.next_id += 1
-        is_root = (len(self.nodes) == 0)
+        is_root = len(self.nodes) == 0
         node = Node(nid, name, event.x, event.y, is_root)
         self.nodes.append(node)
         self.draw_node(node)
         self.update_all_arrows()
         self.select_node(node)
 
-    def draw_node(self, node):
+    def draw_node(self, node: Node):
+        """Draw the specified node."""
         # Remove old canvas items for this node
         for item in self.canvas.find_withtag(f"node_{node.id}"):
             self.canvas.delete(item)
@@ -86,8 +95,8 @@ class MissionEditorApp:
 
         outline = "#ff0000" if node.is_root else "#0055aa"
         fill = "#ccffcc" if node.is_root else "#e6f3ff"
-        rect_id = self.canvas.create_rectangle(x0, y0, x0+w, y0+h,
-                                               fill=fill, outline=outline, width=3 if node.is_root else 2)
+        rect_id = self.canvas.create_rectangle(x0, y0, x0+w, y0+h, fill=fill, outline=outline,
+                                               width=3 if node.is_root else 2)
         text_id = self.canvas.create_text(node.x, node.y, text=node.name,
                                           anchor="center", font=("Arial", 10, "bold"))
 
@@ -96,32 +105,35 @@ class MissionEditorApp:
         self.canvas.addtag_withtag(f"node_{node.id}", text_id)
         self.canvas.addtag_withtag(f"rect_{node.id}", rect_id)   # <-- new tag for rectangle only
 
-        self.canvas.tag_bind(rect_id, "<Button-1>", lambda e: self.select_node(node))
-        self.canvas.tag_bind(text_id, "<Button-1>", lambda e: self.select_node(node))
+        _ = self.canvas.tag_bind(rect_id, "<Button-1>", lambda e: self.select_node(node))
+        _ = self.canvas.tag_bind(text_id, "<Button-1>", lambda e: self.select_node(node))
 
-    def select_node(self, node):
+    def select_node(self, node: Node):
+        """Select the specified node."""
         # Deselect previous node – only change the rectangle
         if self.selected_node:
             rect_items = self.canvas.find_withtag(f"rect_{self.selected_node.id}")
             for item in rect_items:
                 outline = "#ff0000" if self.selected_node.is_root else "#0055aa"
                 width = 3 if self.selected_node.is_root else 2
-                self.canvas.itemconfig(item, outline=outline, width=width)
+                _ = self.canvas.itemconfig(item, outline=outline, width=width)
         self.selected_node = node
         if node:
             rect_items = self.canvas.find_withtag(f"rect_{node.id}")
             for item in rect_items:
-                self.canvas.itemconfig(item, outline="red", width=3)
+                _ = self.canvas.itemconfig(item, outline="red", width=3)
 
-    def on_press(self, event):
+    def on_press(self, event: tk.Event):
+        """Run this code on press."""
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
 
-    def on_drag(self, event):
+    def on_drag(self, event: tk.Event):
+        """Run this code on drag."""
         if not self.selected_node:
             return
-        dx = event.x - self.drag_data["x"]
-        dy = event.y - self.drag_data["y"]
+        dx: int = event.x - self.drag_data["x"]
+        dy: int = event.y - self.drag_data["y"]
         self.selected_node.x += dx
         self.selected_node.y += dy
         self.draw_node(self.selected_node)
@@ -129,10 +141,11 @@ class MissionEditorApp:
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
 
-    def on_release(self, event):
-        pass
+    def on_release(self, event: tk.Event):
+        """Run this code on release."""
 
-    def show_context_menu(self, event):
+    def show_context_menu(self, event: tk.Event):
+        """Show the context menu."""
         # Find node under cursor
         items = self.canvas.find_overlapping(event.x-5, event.y-5, event.x+5, event.y+5)
         for item in items:
@@ -150,8 +163,9 @@ class MissionEditorApp:
             self.ctx_menu.tk_popup(event.x_root, event.y_root)
 
     def edit_node_code(self):
+        """Edit the code in the selected node."""
         if not self.selected_node:
-            messagebox.showwarning("No Node", "Select a node first.")
+            _ = messagebox.showwarning("No Node", "Select a node first.")
             return
 
         editor = tk.Toplevel(self.root)
@@ -163,6 +177,8 @@ class MissionEditorApp:
         text.insert("1.0", self.selected_node.code)
 
         def save_code():
+            if self.selected_node is None:
+                return
             self.selected_node.code = text.get("1.0", "end-1c")
             editor.destroy()
 
@@ -170,8 +186,9 @@ class MissionEditorApp:
         btn.pack(pady=5)
 
     def define_transitions(self):
+        """Define transitions for the selected node."""
         if not self.selected_node:
-            messagebox.showwarning("No Node", "Select a node first.")
+            _ = messagebox.showwarning("No Node", "Select a node first.")
             return
 
         node = self.selected_node
@@ -194,21 +211,27 @@ class MissionEditorApp:
 
         def add_transition():
             try:
-                ret_val = int(simpledialog.askstring("Transition", "Integer return value from code:"))
+                ret_val = int(simpledialog.askstring(
+                    "Transition",
+                    "Integer return value from code:"
+                ))
                 target_names = [n.name for n in self.nodes if n.id != node.id]
                 if not target_names:
-                    messagebox.showerror("Error", "No other nodes to connect to.")
+                    _ = messagebox.showerror("Error", "No other nodes to connect to.")
                     return
-                target_name = simpledialog.askstring("Target", f"Select target node:\n{', '.join(target_names)}")
+                target_name = simpledialog.askstring(
+                    "Target",
+                    f"Select target node:\n{', '.join(target_names)}"
+                )
                 target_node = next((n for n in self.nodes if n.name == target_name), None)
                 if target_node:
                     node.connections[ret_val] = target_node.id
                     refresh_list()
                     self.update_all_arrows()
                 else:
-                    messagebox.showerror("Error", "Target not found.")
+                    _ = messagebox.showerror("Error", "Target not found.")
             except ValueError:
-                messagebox.showerror("Error", "Invalid integer.")
+                _ = messagebox.showerror("Error", "Invalid integer.")
 
         def remove_transition():
             sel = listbox.curselection()
@@ -224,15 +247,19 @@ class MissionEditorApp:
                     refresh_list()
                     self.update_all_arrows()
             except (IndexError, ValueError):
-                messagebox.showerror("Error", "Could not parse transition.")
+                _ = messagebox.showerror("Error", "Could not parse transition.")
 
         btn_frame = tk.Frame(trans_win)
         btn_frame.pack(pady=5)
-        tk.Button(btn_frame, text="Add Transition", command=add_transition).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="Remove Selected", command=remove_transition).pack(side=tk.LEFT, padx=5)
-        tk.Button(trans_win, text="Close", command=trans_win.destroy).pack(pady=5)
+        tk.Button(btn_frame, text="Add Transition",  command=add_transition)\
+            .pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Remove Selected", command=remove_transition)\
+            .pack(side=tk.LEFT, padx=5)
+        tk.Button(trans_win, text="Close",           command=trans_win.destroy)\
+            .pack(pady=5)
 
     def set_root(self):
+        """Set the selected node as root."""
         if not self.selected_node:
             return
         for n in self.nodes:
@@ -240,9 +267,10 @@ class MissionEditorApp:
         self.selected_node.is_root = True
         self.draw_node(self.selected_node)
         self.select_node(self.selected_node)
-        messagebox.showinfo("Root Set", f"{self.selected_node.name} is now the root node.")
+        _ = messagebox.showinfo("Root Set", f"{self.selected_node.name} is now the root node.")
 
     def update_all_arrows(self):
+        """Update all arrows of the mission graph."""
         self.canvas.delete("arrow")
         for node in self.nodes:
             for ret_val, target_id in node.connections.items():
@@ -250,16 +278,20 @@ class MissionEditorApp:
                 if target:
                     self.draw_arrow(node, target, ret_val)
 
-    def draw_arrow(self, src, tgt, label):
+    def draw_arrow(self, src: Node, tgt: Node, label) -> None:
+        """Draw an arrow from src to tgt."""
         x1, y1 = src.x, src.y
         x2, y2 = tgt.x, tgt.y
-        self.canvas.create_line(x1, y1, x2, y2, fill="#aa0000", width=2, tags="arrow", arrow=tk.LAST)
+        _ = self.canvas.create_line(x1, y1, x2, y2, fill="#aa0000",
+                                    width=2, tags="arrow", arrow=tk.LAST)
         mx, my = (x1+x2)/2, (y1+y2)/2
-        self.canvas.create_text(mx, my-10, text=str(label), fill="blue", font=("Arial", 9), tags="arrow")
+        _ = self.canvas.create_text(mx, my-10, text=str(label), fill="blue",
+                                    font=("Arial", 9), tags="arrow")
 
     def save_mission_to_disk(self):
+        """Save the current mission to disk."""
         if not self.nodes:
-            messagebox.showwarning("Empty", "No nodes to save.")
+            _ = messagebox.showwarning("Empty", "No nodes to save.")
             return
 
         mission_name = simpledialog.askstring("Save Mission", "Enter Mission Name (Folder name):")
@@ -276,8 +308,8 @@ class MissionEditorApp:
         for node in self.nodes:
             filename = f"node_{node.id}_{node.name}.py"
             filepath = os.path.join(dir_path, filename)
-            with open(filepath, "w") as f:
-                f.write(node.code)
+            with open(filepath, "w", encoding="UTF-8") as f:
+                _ = f.write(node.code)
 
         meta = {
             "nodes": [],
@@ -293,26 +325,27 @@ class MissionEditorApp:
                 "code_file": f"node_{node.id}_{node.name}.py",
                 "connections": node.connections
             })
-        with open(os.path.join(dir_path, "mission.json"), "w") as f:
+        with open(os.path.join(dir_path, "mission.json"), "w", encoding="UTF-8") as f:
             json.dump(meta, f, indent=4)
 
         self.mission_folder = dir_path
-        messagebox.showinfo("Saved", f"Mission '{mission_name}' saved to:\n{dir_path}")
+        _ = messagebox.showinfo("Saved", f"Mission '{mission_name}' saved to:\n{dir_path}")
 
     def load_mission(self):
+        """Load the mission from disk."""
         folder = filedialog.askdirectory(title="Select Mission Folder")
         if not folder:
             return
         meta_path = os.path.join(folder, "mission.json")
         if not os.path.exists(meta_path):
-            messagebox.showerror("Error", "mission.json not found.")
+            _ = messagebox.showerror("Error", "mission.json not found.")
             return
 
         try:
-            with open(meta_path, "r") as f:
+            with open(meta_path, "r", encoding="UTF-8") as f:
                 meta = json.load(f)
-        except:
-            messagebox.showerror("Error", "Invalid mission.json.")
+        except Exception:
+            _ = messagebox.showerror("Error", "Invalid mission.json.")
             return
 
         self.new_mission()
@@ -325,7 +358,7 @@ class MissionEditorApp:
             node = Node(data["id"], data["name"], data["x"], data["y"])
             code_file = os.path.join(folder, data["code_file"])
             if os.path.exists(code_file):
-                with open(code_file, "r") as cf:
+                with open(code_file, "r", encoding="UTF-8") as cf:
                     node.code = cf.read()
             node.connections = data.get("connections", {})
             self.nodes.append(node)
@@ -339,7 +372,7 @@ class MissionEditorApp:
 
         self.mission_folder = folder
         self.update_all_arrows()
-        messagebox.showinfo("Loaded", f"Mission loaded from:\n{folder}")
+        _ = messagebox.showinfo("Loaded", f"Mission loaded from:\n{folder}")
 
 
 if __name__ == "__main__":
